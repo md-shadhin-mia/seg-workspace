@@ -1,0 +1,35 @@
+# Local development databases: PostgreSQL on localhost:5432 with seg (dev), seg_test (npm test) and seg_e2e (npm run e2e).
+# Matches the defaults in server/src/config.ts, server/test/helpers.ts and e2e/playwright.config.ts, so no .env is needed.
+#   npm run db:up      start
+#   npm run db:down    stop (data is kept; add -v to wipe it)
+name: seg-workspace-dev
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: seg
+      POSTGRES_USER: seg
+      POSTGRES_PASSWORD: seg
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - dev-db-data:/var/lib/postgresql/data
+    configs:
+      - source: init-test-dbs
+        target: /docker-entrypoint-initdb.d/init-test-dbs.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U seg -d seg"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+# Runs once, when the volume is first created. The tests wipe the public schema of these, so they stay separate from seg.
+configs:
+  init-test-dbs:
+    content: |
+      CREATE DATABASE seg_test OWNER seg;
+      CREATE DATABASE seg_e2e OWNER seg;
+
+volumes:
+  dev-db-data:

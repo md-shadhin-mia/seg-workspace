@@ -1,0 +1,20 @@
+{
+  "name": "seg-workspace",
+  "private": true,
+  "version": "1.0.0",
+  "workspaces": ["server", "web"],
+  "engines": { "node": ">=20.11" },
+  "scripts": {
+    "dev": "npm run dev -w server & npm run dev -w web",
+    "build": "npm run build -w web && npm run build -w server",
+    "start": "npm run start -w server",
+    "test": "npm run test -w server && npm run test -w web",
+    "typecheck": "npm run typecheck -w server && npm run typecheck -w web",
+    "e2e": "playwright test -c e2e/playwright.config.ts",
+    "db:up": "docker compose -f docker-compose.dev.yml up -d --wait",
+    "db:down": "docker compose -f docker-compose.dev.yml down"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.49.1"
+  }
+}

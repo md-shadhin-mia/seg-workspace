@@ -1,0 +1,73 @@
+# SEG Workspace production stack: app + PostgreSQL + Caddy (automatic HTTPS) + nightly backups.
+# 1. cp .env.example .env and fill it in
+# 2. docker compose up -d --build
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: seg
+      POSTGRES_USER: seg
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U seg -d seg"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  app:
+    build: .
+    image: seg-workspace:latest
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://seg:${POSTGRES_PASSWORD}@db:5432/seg
+      UPLOAD_DIR: /data/uploads
+    volumes:
+      - uploads:/data/uploads
+    expose:
+      - "3000"
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - app
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      DOMAIN: ${DOMAIN:?Set DOMAIN in .env}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+  # Daily database dump into ./backups, keeping 14 days. Copy that folder off the server too.
+  backup:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - ./backups:/backups
+    entrypoint: >
+      sh -c 'while true; do
+        pg_dump -h db -U seg -d seg -Fc -f /backups/seg-$$(date +%Y%m%d-%H%M).dump &&
+        find /backups -name "seg-*.dump" -mtime +14 -delete;
+        sleep 86400; done'
+
+volumes:
+  db-data:
+  uploads:
+  caddy-data:
+  caddy-config:

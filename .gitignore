@@ -1,0 +1,8 @@
+node_modules
+dist
+.env
+server/data
+backups
+test-results
+playwright-report
+.playwright-mcp

@@ -1,0 +1,26 @@
+name: CI
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env: { POSTGRES_USER: seg, POSTGRES_PASSWORD: seg, POSTGRES_DB: seg_test }
+        ports: ["5432:5432"]
+        options: --health-cmd "pg_isready -U seg" --health-interval 5s --health-retries 20
+    env:
+      TEST_DATABASE_URL: postgres://seg:seg@localhost:5432/seg_test
+      E2E_DATABASE_URL: postgres://seg:seg@localhost:5432/seg_e2e
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      - run: PGPASSWORD=seg psql -h localhost -U seg -d seg_test -c 'create database seg_e2e'
+      - run: npx playwright install --with-deps chromium
+      - run: npm run e2e
+      - run: docker build -t seg-workspace:ci .
