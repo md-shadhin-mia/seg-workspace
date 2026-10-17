@@ -83,6 +83,16 @@ Any SMTP provider works.
 
 **Without SMTP:** the app still works. Admins can copy invite and reset links from the Users page, and nothing is emailed.
 
+### Server that already runs nginx
+
+If ports 80/443 are taken by an existing nginx, skip the bundled Caddy and publish the app on localhost only (port `APP_PORT` in `.env`, default 3210):
+
+```bash
+docker compose -f docker-compose.yml -f deploy/compose.behind-proxy.yml up -d --build db app backup
+```
+
+Then copy `deploy/nginx.conf.example` to `/etc/nginx/conf.d/<your-domain>.conf`, set the domain, run `nginx -t && systemctl reload nginx`, and add HTTPS with `certbot --nginx -d <your-domain>`. Use the same `-f` flags with every later `docker compose` command.
+
 ### Updating
 
 ```bash

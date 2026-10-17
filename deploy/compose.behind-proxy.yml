@@ -1,0 +1,7 @@
+# For servers that already run nginx (or another proxy) on ports 80/443: skip Caddy and publish the app on localhost only.
+#   docker compose -f docker-compose.yml -f deploy/compose.behind-proxy.yml up -d --build db app backup
+# Then point the proxy at 127.0.0.1:${APP_PORT} (see deploy/nginx.conf.example).
+services:
+  app:
+    ports:
+      - "127.0.0.1:${APP_PORT:-3210}:3000"
