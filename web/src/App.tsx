@@ -13,6 +13,8 @@ const ProjectPage = lazy(() => import('./pages/Project'));
 const TeamPage = lazy(() => import('./pages/Team'));
 const TaskPage = lazy(() => import('./pages/Task'));
 const Inbox = lazy(() => import('./pages/Inbox'));
+const Analytics = lazy(() => import('./pages/Analytics'));
+const PersonPage = lazy(() => import('./pages/Person'));
 const Users = lazy(() => import('./pages/admin/Users'));
 const Teams = lazy(() => import('./pages/admin/Teams'));
 const Settings = lazy(() => import('./pages/Settings'));
@@ -45,6 +47,8 @@ const router = createBrowserRouter([
       { path: '/teams/:id', element: page(<TeamPage />) },
       { path: '/tasks/:id', element: page(<TaskPage />) },
       { path: '/inbox', element: page(<Inbox />) },
+      { path: '/analytics', element: page(<Analytics />) },
+      { path: '/people/:id', element: page(<PersonPage />) },
       { path: '/settings', element: page(<Settings />) },
       { path: '/admin/users', element: <RequireAuth admin>{page(<Users />)}</RequireAuth> },
       { path: '/admin/teams', element: <RequireAuth admin>{page(<Teams />)}</RequireAuth> },

@@ -28,6 +28,13 @@ const Env = z.object({
   ALLOWED_EMAIL_DOMAIN: z.string().optional(),
   APP_TIMEZONE: z.string().default('Asia/Dhaka'),
   RATE_LIMIT_AUTH: z.coerce.number().int().positive().default(10),
+  // AI through OpenRouter. No key = AI features are off and hidden.
+  OPENROUTER_API_KEY: z.string().optional(),
+  AI_MODEL: z.string().default('anthropic/claude-haiku-5.5'),
+  AI_BASE_URL: z.string().url().default('https://openrouter.ai/api/v1'),
+  AI_MAX_TOKENS: z.coerce.number().int().positive().default(1500),
+  AI_TIMEOUT_SECONDS: z.coerce.number().positive().default(60),
+  AI_REQUESTS_PER_HOUR: z.coerce.number().int().positive().default(60),
 });
 
 export type Config = z.infer<typeof Env>;

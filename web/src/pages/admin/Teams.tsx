@@ -22,16 +22,17 @@ export default function Teams() {
       </div>
       <div className="table-wrap">
         <table>
-          <thead><tr><th>Team</th><th>People</th><th>Projects</th><th style={{ width: 230 }} /></tr></thead>
+          <thead><tr><th>Team</th><th>Department</th><th>People</th><th>Projects</th><th style={{ width: 230 }} /></tr></thead>
           <tbody>
             {teams.data!.map((t) => (
               <tr key={t.id}>
                 <td><b style={{ fontWeight: 500 }}>{t.name}</b><div className="muted" style={{ fontSize: 12.5 }}>{t.description || 'No description'}</div></td>
+                <td>{t.department ? <span className="pill pink">{t.department}</span> : <span className="muted">–</span>}</td>
                 <td className="num">{t.memberCount}</td>
                 <td className="num">{t.projectCount}</td>
                 <td><div className="row end">
                   <Link to={`/teams/${t.id}`} className="btn sm">Members</Link>
-                  <button className="btn sm" onClick={() => setEdit(t)}>Rename</button>
+                  <button className="btn sm" onClick={() => setEdit(t)}>Edit</button>
                   <button className="btn ghost sm danger" onClick={() => setDel(t)} disabled={t.projectCount > 0} title={t.projectCount ? 'Archive or move its projects first' : undefined}>Delete</button>
                 </div></td>
               </tr>
@@ -51,8 +52,10 @@ function TeamModal({ team, onClose }: { team: Team | null; onClose: () => void }
   const toast = useToast();
   const [name, setName] = useState(team?.name ?? '');
   const [description, setDescription] = useState(team?.description ?? '');
+  const [department, setDepartment] = useState(team?.department ?? '');
+  const departments = [...new Set((qc.getQueryData<Team[]>(['teams']) ?? []).map((t) => t.department).filter(Boolean))].sort();
   const save = useMutation({
-    mutationFn: () => (team ? api.patch(`/teams/${team.id}`, { name, description }) : api.post('/teams', { name, description })),
+    mutationFn: () => (team ? api.patch(`/teams/${team.id}`, { name, description, department }) : api.post('/teams', { name, description, department })),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['teams'] }); qc.invalidateQueries({ queryKey: ['me'] }); toast(team ? 'Team saved' : `${name} created`); onClose(); },
     onError: (e) => toast((e as ApiError).message, { kind: 'error' }),
   });
@@ -63,6 +66,12 @@ function TeamModal({ team, onClose }: { team: Team | null; onClose: () => void }
     </>}>
       <form id="team-form" className="form" onSubmit={(e: FormEvent) => { e.preventDefault(); save.mutate(); }}>
         <div className="field"><label htmlFor="tm-name">Name</label><input id="tm-name" className="input" value={name} onChange={(e) => setName(e.target.value)} autoFocus maxLength={60} /></div>
+        <div className="field">
+          <label htmlFor="tm-dept">Department <span className="muted">(optional)</span></label>
+          <input id="tm-dept" className="input" list="tm-depts" value={department} onChange={(e) => setDepartment(e.target.value)} maxLength={60} placeholder="e.g. Technology" />
+          <datalist id="tm-depts">{departments.map((d) => <option key={d} value={d} />)}</datalist>
+          <span className="hint">Groups teams in Analytics, so you can compare departments.</span>
+        </div>
         <div className="field"><label htmlFor="tm-desc">Description</label><textarea id="tm-desc" className="input" rows={2} value={description} onChange={(e) => setDescription(e.target.value)} maxLength={300} /></div>
       </form>
     </Modal>

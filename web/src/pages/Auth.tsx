@@ -3,30 +3,18 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { AlertCircle, CheckCircle2, Clock, MailCheck } from 'lucide-react';
 import { ApiError, api } from '../lib/api';
-import { Avatar, Meter, PasswordInput, StatusPill } from '../components/ui';
+import { Meter, PasswordInput } from '../components/ui';
+import { Showcase } from '../components/Showcase';
 
 function AuthLayout({ children }: { children: ReactNode }) {
   return (
     <div className="auth">
-      <aside className="auth-side" aria-hidden="true">
-        <div className="brand"><span className="logo">S</span><span className="name">SEG Workspace</span></div>
-        <div className="auth-quote">
-          <h2>Every task, every person, <mark>one clear status.</mark></h2>
-          <p>Assign work to several people, see where each of them stands, and review what they deliver, all in one place.</p>
-          <div className="auth-mock">
-            <div className="row" style={{ justifyContent: 'space-between' }}>
-              <b style={{ fontWeight: 600 }}>Study Abroad Service Page</b><StatusPill status="in_progress" />
-            </div>
-            {[['Tanvir Ahmed', 'done'], ['Imran Kabir', 'review'], ['Walid Hasan', 'in_progress']].map(([n, s]) => (
-              <div className="row" key={n} style={{ fontSize: 13 }}>
-                <Avatar name={n} size={24} /><span style={{ flex: 1 }}>{n}</span><StatusPill status={s as any} />
-              </div>
-            ))}
-          </div>
-        </div>
-        <p className="muted" style={{ fontSize: 12.5 }}>SEG Digital · Internal workspace</p>
-      </aside>
-      <main className="auth-main"><div className="auth-card">{children}</div></main>
+      <main className="auth-main">
+        <Link to="/login" className="brand"><span className="logo">S</span><span className="name">SEG Workspace</span></Link>
+        <div className="auth-center"><div className="auth-card">{children}</div></div>
+        <div className="auth-foot"><span>SEG Digital · Internal workspace</span><span>© {new Date().getFullYear()} SEG Digital</span></div>
+      </main>
+      <Showcase />
     </div>
   );
 }
@@ -57,8 +45,8 @@ export function Login() {
 
   return (
     <AuthLayout>
-      <h1>Sign in</h1>
-      <p className="sub">Welcome back. Use your work email.</p>
+      <h1>Welcome back</h1>
+      <p className="sub">Sign in with your work email to pick up where your team left off.</p>
       {params.get('reset') === '1' && <div className="notice ok" style={{ marginBottom: 16 }}><CheckCircle2 size={16} />Password updated. Sign in with your new password.</div>}
       {error && (
         <div className={`notice ${error.code === 'pending' ? 'info' : 'err'}`} style={{ marginBottom: 16 }} role="alert">

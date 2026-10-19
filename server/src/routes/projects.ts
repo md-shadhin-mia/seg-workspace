@@ -1,14 +1,24 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { canManageTeam, canSeeTeam, visibleProjectCond } from '../lib/access.js';
-import { forbidden, notFound } from '../lib/errors.js';
+import { badRequest, forbidden, notFound } from '../lib/errors.js';
+import { notify } from '../lib/events.js';
 import { parse, requireUser, uuid } from '../lib/http.js';
+import { PRIORITIES } from '../lib/types.js';
 
 const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use a YYYY-MM-DD date').nullable();
 const status = z.enum(['on_track', 'at_risk', 'off_track', 'completed']);
+const newTask = z.object({
+  title: z.string().trim().min(1, 'Give the task a title').max(200),
+  description: z.string().max(20000).default(''),
+  priority: z.enum(PRIORITIES).default('medium'),
+  dueDate: date.optional(),
+  assigneeIds: z.array(uuid).max(20).default([]),
+});
 
 export default async function projectRoutes(app: FastifyInstance) {
-  const { sql } = app;
+  const { sql, cfg, mail } = app;
+  const ctx = { sql, cfg, mail, log: (o: unknown, m?: string) => app.log.warn(o, m) };
 
   const stats = sql`
     (select count(*)::int from tasks t where t.project_id = p.id) as task_count,
@@ -44,16 +54,42 @@ export default async function projectRoutes(app: FastifyInstance) {
     const body = parse(z.object({
       teamId: uuid,
       name: z.string().trim().min(1, 'Name the project').max(100),
-      description: z.string().trim().max(2000).default(''),
+      description: z.string().trim().max(6000).default(''),
       dueDate: date.optional(),
       leadId: uuid.optional(),
+      tasks: z.array(newTask).max(30).default([]),
     }), req.body);
     if (!canManageTeam(u, body.teamId)) throw forbidden('Only team leads and admins can create projects.');
-    const [p] = await sql`
-      insert into projects (team_id, name, description, due_date, lead_id, created_by)
-      values (${body.teamId}, ${body.name}, ${body.description}, ${body.dueDate ?? null}, ${body.leadId ?? u.id}, ${u.id})
-      returning id`;
-    return reply.status(201).send(p);
+    const assigneeIds = [...new Set(body.tasks.flatMap((t) => t.assigneeIds))];
+    if (assigneeIds.length) {
+      const [{ n }] = await sql`select count(*)::int as n from users where id = any(${sql.array(assigneeIds)}::uuid[]) and status = 'active'`;
+      if (n !== assigneeIds.length) throw badRequest('One of the people you picked is not an active user.');
+    }
+    // The project and all of its tasks are created together, or not at all.
+    const { project, tasks } = await sql.begin(async (tx) => {
+      const [project] = await tx`
+        insert into projects (team_id, name, description, due_date, lead_id, created_by)
+        values (${body.teamId}, ${body.name}, ${body.description}, ${body.dueDate ?? null}, ${body.leadId ?? u.id}, ${u.id})
+        returning id`;
+      const tasks: { id: string; title: string; assigneeIds: string[] }[] = [];
+      for (const t of body.tasks) {
+        const ids = [...new Set(t.assigneeIds)];
+        const [row] = await tx`
+          insert into tasks (project_id, title, description, priority, due_date, created_by)
+          values (${project.id}, ${t.title}, ${t.description}, ${t.priority}, ${t.dueDate ?? null}, ${u.id})
+          returning id`;
+        for (const a of ids) await tx`insert into task_assignees (task_id, user_id, assigned_by) values (${row.id}, ${a}, ${u.id})`;
+        await tx`insert into activity (task_id, actor_id, action, meta) values (${row.id}, ${u.id}, 'created', '{}')`;
+        if (ids.length) await tx`insert into activity (task_id, actor_id, action, meta) values (${row.id}, ${u.id}, 'assigned', ${tx.json({ userIds: ids })})`;
+        tasks.push({ id: row.id, title: t.title, assigneeIds: ids });
+      }
+      return { project, tasks };
+    });
+    for (const t of tasks) {
+      await notify(ctx, { userIds: t.assigneeIds, type: 'assigned', taskId: t.id, actorId: u.id,
+        body: `${u.name} assigned you "${t.title}" in ${body.name}.`, subject: `New task: ${t.title}` });
+    }
+    return reply.status(201).send({ id: project.id, taskIds: tasks.map((t) => t.id) });
   });
 
   app.patch('/projects/:id', async (req) => {
@@ -64,7 +100,7 @@ export default async function projectRoutes(app: FastifyInstance) {
     if (!canManageTeam(u, p.teamId)) throw forbidden();
     const body = parse(z.object({
       name: z.string().trim().min(1).max(100).optional(),
-      description: z.string().trim().max(2000).optional(),
+      description: z.string().trim().max(6000).optional(),
       status: status.optional(),
       dueDate: date.optional(),
       leadId: uuid.nullable().optional(),

@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowLeft, CalendarDays, Check, CircleUser, Clock, ExternalLink, FileText, Flag, FolderKanban, Github, Globe, Image as ImageIcon,
-  Link2, MessageSquare, MoreHorizontal, Paperclip, Pencil, Send, Trash2, Upload, UserPlus, Users, X,
+  Link2, ListChecks, MessageSquare, MoreHorizontal, Paperclip, Pencil, Send, Sparkles, Trash2, Upload, UserPlus, Users, Wand2, X,
 } from 'lucide-react';
 import { ApiError, api, upload } from '../lib/api';
 import { useMe } from '../lib/auth';
@@ -11,6 +11,8 @@ import { PRIORITY, STATUS, ago, dueClass, dueLabel, fileSize, firstName, host, l
 import type { Activity, Comment, FileRef, Priority, Status, Submission, TaskDetail } from '../lib/types';
 import { Avatar, Confirm, Empty, ErrorState, Menu, PageLoading, PeoplePicker, StatusMenu, StatusPill, useAnchor, useToast } from '../components/ui';
 import { peopleFor, usePeople } from '../components/NewTaskModal';
+import { AiPanel, useAiEnabled } from '../components/Ai';
+import { Crumbs } from '../components/kpi';
 
 type Tab = 'overview' | 'checklist' | 'files' | 'submissions' | 'comments' | 'activity';
 
@@ -129,7 +131,9 @@ function LeftPanel({ t, onTab }: { t: TaskDetail; onTab: (t: Tab) => void }) {
     <aside className="detail-left">
       <div className="detail-head">
         <div style={{ textAlign: 'left', marginTop: -8, marginBottom: 6 }}>
-          <Link to={t.perms.openProject ? `/projects/${t.project.id}` : '/my-tasks'} className="back muted" style={{ fontSize: 13 }}><ArrowLeft size={15} />{t.perms.openProject ? t.project.name : 'My Tasks'}</Link>
+          <Crumbs items={t.perms.openProject
+            ? [{ label: t.team.name, to: `/teams/${t.team.id}` }, { label: t.project.name, to: `/projects/${t.project.id}` }, { label: `#${t.seq}` }]
+            : [{ label: 'My Tasks', to: '/my-tasks' }, { label: `#${t.seq}` }]} />
         </div>
         <div className="ico"><FileText size={24} /></div>
         <h2>{t.title}</h2>
@@ -266,6 +270,7 @@ function Overview({ t, onTab }: { t: TaskDetail; onTab: (t: Tab) => void }) {
             {dirty && <div className="row end" style={{ marginTop: 8 }}><button className="btn ghost sm" onClick={() => setDesc(t.description)}>Discard</button><button className="btn primary sm" onClick={() => patch.mutate({ description: desc })}>Save description</button></div>}
           </>
         ) : <p className="desc-read">{t.description || <span className="muted">No description.</span>}</p>}
+        <TaskAi t={t} desc={desc} onUseDescription={setDesc} />
       </div>
 
       <div className="stats" style={{ ['--n' as any]: 3 }}>
@@ -289,6 +294,49 @@ function Overview({ t, onTab }: { t: TaskDetail; onTab: (t: Tab) => void }) {
             })}
           </div>
         </div>
+      )}
+    </>
+  );
+}
+
+/* ---------- AI helpers on the overview ---------- */
+type AiAction = 'improve' | 'summarize' | 'checklist';
+const AI_TITLE: Record<AiAction, string> = { improve: 'Improved description', summarize: 'Summary', checklist: 'Suggested checklist' };
+
+function TaskAi({ t, desc, onUseDescription }: { t: TaskDetail; desc: string; onUseDescription: (text: string) => void }) {
+  const enabled = useAiEnabled();
+  const qc = useQueryClient();
+  const toast = useToast();
+  const [result, setResult] = useState<{ action: AiAction; text?: string; items?: string[] } | null>(null);
+  const run = useMutation({
+    // Improve and checklist work from what's in the editor, including unsaved edits.
+    mutationFn: (action: AiAction) => api.post<{ text?: string; items?: string[] }>(`/tasks/${t.id}/ai`, { action, draft: action === 'summarize' ? undefined : desc }),
+    onMutate: (action) => setResult({ action }),
+    onSuccess: (r, action) => setResult({ action, ...r }),
+    onError: (e) => { setResult(null); toast((e as ApiError).message, { kind: 'error' }); },
+  });
+  const addItems = useMutation({
+    mutationFn: async (items: string[]) => { for (const text of items) await api.post(`/tasks/${t.id}/checklist`, { text }); return items.length; },
+    onSuccess: (n) => { setResult(null); toast(`Added ${plural(n, 'checklist item')}`); },
+    onError: (e) => toast((e as ApiError).message, { kind: 'error' }),
+    onSettled: () => qc.invalidateQueries({ queryKey: ['task', t.id] }),
+  });
+  if (!enabled) return null;
+  const btn = (action: AiAction, label: string, icon: React.ReactNode, disabled = false, title?: string) => (
+    <button className="btn ghost sm" onClick={() => run.mutate(action)} disabled={run.isPending || disabled} title={title}>{icon}{label}</button>
+  );
+  return (
+    <>
+      <div className="ai-row" role="group" aria-label="AI">
+        {t.perms.edit && btn('improve', 'Improve', <Wand2 size={14} />, !desc.trim(), desc.trim() ? 'Rewrite the description as Goal / What’s needed / Done when' : 'Write a few notes first')}
+        {btn('summarize', 'Summarize', <Sparkles size={14} />)}
+        {t.perms.edit && btn('checklist', 'Create checklist', <ListChecks size={14} />)}
+      </div>
+      {result && (
+        <AiPanel title={AI_TITLE[result.action]} loading={run.isPending} text={result.text} items={result.items} busy={addItems.isPending}
+          onClose={() => setResult(null)}
+          onUseText={result.action === 'improve' ? (text) => { onUseDescription(text); setResult(null); toast('Description updated. Check it, then Save.'); } : undefined}
+          onUseItems={result.action === 'checklist' ? (items) => addItems.mutate(items) : undefined} />
       )}
     </>
   );
@@ -437,6 +485,24 @@ function SubState({ s }: { s: Submission }) {
   return s.state === 'pending' ? <span className="pill st-review">Waiting for review</span> : s.state === 'changes' ? <span className="pill st-changes">Changes requested</span> : <span className="pill st-done">Approved</span>;
 }
 
+function FeedbackSummary({ t }: { t: TaskDetail }) {
+  const enabled = useAiEnabled();
+  const toast = useToast();
+  const [open, setOpen] = useState(false);
+  const run = useMutation({
+    mutationFn: () => api.post<{ text: string }>(`/tasks/${t.id}/ai`, { action: 'feedback' }),
+    onMutate: () => setOpen(true),
+    onError: (e) => { setOpen(false); toast((e as ApiError).message, { kind: 'error' }); },
+  });
+  if (!enabled || !t.submissions.some((s) => s.feedback?.trim())) return null;
+  return (
+    <div>
+      <button className="btn ghost sm" onClick={() => run.mutate()} disabled={run.isPending}><Sparkles size={14} />Summarize feedback</button>
+      {open && <AiPanel title="Feedback across versions" loading={run.isPending} text={run.data?.text} onClose={() => setOpen(false)} />}
+    </div>
+  );
+}
+
 function Submissions({ t, focusSubmit }: { t: TaskDetail; focusSubmit: boolean }) {
   const me = useMe();
   const [who, setWho] = useState<string>('all');
@@ -449,6 +515,7 @@ function Submissions({ t, focusSubmit }: { t: TaskDetail; focusSubmit: boolean }
         <button className={who === 'all' ? 'active' : ''} onClick={() => setWho('all')}>Everyone</button>
         {people.map((p) => <button key={p.id} className={who === p.id ? 'active' : ''} onClick={() => setWho(p.id)}>{p.id === me.id ? 'You' : firstName(p.name)}</button>)}
       </div>
+      <FeedbackSummary t={t} />
       {focusSubmit && (who === 'all' || who === me.id) && <MySubmitBox t={t} />}
       {shown.map((p) => {
         const subs = t.submissions.filter((s) => s.userId === p.id);

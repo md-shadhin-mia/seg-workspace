@@ -11,6 +11,7 @@ import type { Config } from './config.js';
 import { createDb, type Sql } from './db.js';
 import { migrate } from './migrate.js';
 import { createMailer, type Mailer } from './lib/mailer.js';
+import { createOpenRouter, type AiClient } from './lib/ai.js';
 import { HttpError } from './lib/errors.js';
 import { SESSION_COOKIE, loadSessionUser } from './lib/http.js';
 import { hashPassword } from './lib/crypto.js';
@@ -23,13 +24,15 @@ import taskRoutes from './routes/tasks.js';
 import fileRoutes from './routes/files.js';
 import notificationRoutes from './routes/notifications.js';
 import miscRoutes from './routes/misc.js';
+import aiRoutes from './routes/ai.js';
+import analyticsRoutes from './routes/analytics.js';
 
 declare module 'fastify' {
-  interface FastifyInstance { sql: Sql; cfg: Config; mail: Mailer }
+  interface FastifyInstance { sql: Sql; cfg: Config; mail: Mailer; ai: AiClient }
   interface FastifyRequest { user: SessionUser | null; sid: string | null }
 }
 
-export interface AppOptions { mailer?: Mailer; sql?: Sql }
+export interface AppOptions { mailer?: Mailer; sql?: Sql; ai?: AiClient }
 
 export async function buildApp(cfg: Config, opts: AppOptions = {}): Promise<FastifyInstance> {
   const sql = opts.sql ?? createDb(cfg.DATABASE_URL, 10, cfg.APP_TIMEZONE);
@@ -49,6 +52,7 @@ export async function buildApp(cfg: Config, opts: AppOptions = {}): Promise<Fast
   app.decorate('sql', sql);
   app.decorate('cfg', cfg);
   app.decorate('mail', mail);
+  app.decorate('ai', opts.ai ?? createOpenRouter(cfg));
   app.decorateRequest('user', null);
   app.decorateRequest('sid', null);
 
@@ -110,6 +114,8 @@ export async function buildApp(cfg: Config, opts: AppOptions = {}): Promise<Fast
     await api.register(fileRoutes);
     await api.register(notificationRoutes);
     await api.register(miscRoutes);
+    await api.register(aiRoutes);
+    await api.register(analyticsRoutes);
   }, { prefix: '/api' });
 
   // Web app: hashed assets cached for a year, index.html never cached, SPA fallback for client routes.

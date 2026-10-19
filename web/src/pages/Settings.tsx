@@ -1,10 +1,12 @@
 import { useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Monitor } from 'lucide-react';
+import { Monitor, Sparkles } from 'lucide-react';
 import { ApiError, api } from '../lib/api';
 import { useMe } from '../lib/auth';
 import { ago } from '../lib/format';
+import type { AiUsage } from '../lib/types';
 import { Avatar, Meter, PasswordInput, useToast } from '../components/ui';
+import { useAiEnabled } from '../components/Ai';
 
 interface Sess { id: string; current: boolean; createdAt: string; lastSeenAt: string; userAgent: string; ip: string }
 
@@ -72,6 +74,53 @@ export default function Settings() {
           </div>
         ))}
       </section>
+
+      {me.role === 'admin' && <AiUsageCard />}
     </div>
+  );
+}
+
+const FEATURE: Record<string, string> = {
+  ask: 'Ask AI', project_plan: 'Project plans', task_improve: 'Improve description', task_summarize: 'Task summaries',
+  task_checklist: 'Checklists', task_feedback: 'Feedback summaries',
+};
+const fmt = (n: number) => n.toLocaleString('en-US');
+
+function AiUsageCard() {
+  const enabled = useAiEnabled();
+  const q = useQuery({ queryKey: ['ai-usage'], queryFn: () => api.get<AiUsage>('/ai/usage'), enabled });
+  if (!enabled) return null;
+  const u = q.data;
+  return (
+    <section className="section card card-pad" aria-label="AI usage this month">
+      <div className="section-h" style={{ marginBottom: 6 }}><h2>AI usage this month</h2><span className="sp" />{u && <span className="pill" title="Model set by AI_MODEL"><Sparkles size={12} />{u.model}</span>}</div>
+      {q.isLoading && <div className="form" style={{ gap: 8 }}><div className="skel" style={{ height: 60 }} /><div className="skel" /><div className="skel" style={{ width: '70%' }} /></div>}
+      {q.error && <div className="notice err">{(q.error as ApiError).message}</div>}
+      {u && (
+        <>
+          <div className="stats" style={{ ['--n' as any]: 3, marginTop: 8 }}>
+            <div className="stat"><span className="v num">{fmt(u.requests)}</span><span className="k">Requests{u.failed ? ` · ${fmt(u.failed)} failed` : ''}</span></div>
+            <div className="stat"><span className="v num">{fmt(u.promptTokens)}</span><span className="k">Tokens in</span></div>
+            <div className="stat"><span className="v num">{fmt(u.completionTokens)}</span><span className="k">Tokens out</span></div>
+          </div>
+          {u.top.length > 0 ? (
+            <div className="grid-2" style={{ marginTop: 16 }}>
+              <div>
+                <span className="label">Top people</span>
+                {u.top.map((p) => (
+                  <div key={p.userId ?? 'gone'} className="kv"><Avatar name={p.name ?? 'Former user'} size={28} />
+                    <div className="t"><b>{p.name ?? 'Former user'}</b><small>{fmt(p.requests)} requests · {fmt(p.tokens)} tokens</small></div></div>
+                ))}
+              </div>
+              <div>
+                <span className="label">By feature</span>
+                {u.byFeature.map((f) => <div key={f.feature} className="row" style={{ justifyContent: 'space-between', padding: '7px 0', fontSize: 13.5 }}><span>{FEATURE[f.feature] ?? f.feature}</span><span className="num muted-2">{fmt(f.requests)}</span></div>)}
+              </div>
+            </div>
+          ) : <p className="muted" style={{ marginTop: 12, fontSize: 13.5 }}>Nobody has used AI this month yet.</p>}
+          <p className="muted" style={{ fontSize: 12.5, marginTop: 12 }}>Each person can make {u.limitPerHour} AI requests an hour. Costs are billed by OpenRouter per token; see your OpenRouter dashboard for spend.</p>
+        </>
+      )}
+    </section>
   );
 }

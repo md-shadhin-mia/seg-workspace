@@ -1,6 +1,6 @@
 import { Link, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Plus, UserPlus } from 'lucide-react';
+import { ChartNoAxesCombined, Plus, UserPlus } from 'lucide-react';
 import { ApiError, api } from '../lib/api';
 import { useMe } from '../lib/auth';
 import { PROJECT_STATUS, dueLabel } from '../lib/format';
@@ -38,6 +38,7 @@ export default function TeamPage() {
     <div className="page">
       <div className="page-head">
         <div><h1>{t.name}</h1>{t.description && <p>{t.description}</p>}</div>
+        {t.canManage && <Link className="btn" to={`/analytics?teamId=${id}`}><ChartNoAxesCombined size={16} />Team insights</Link>}
         {t.canManage && <button className="btn" onClick={() => shell.newProject(id)}><Plus size={16} />New project</button>}
       </div>
 
@@ -70,7 +71,9 @@ export default function TeamPage() {
             <tbody>
               {t.members.map((m) => (
                 <tr key={m.id}>
-                  <td><div className="who-cell"><Avatar name={m.name} size={32} /><div><b>{m.name}</b><small>{m.title || m.email}</small></div></div></td>
+                  <td>{t.canManage || m.id === me.id
+                    ? <Link to={`/people/${m.id}`} className="who-cell" title="Open performance"><Avatar name={m.name} size={32} /><div><b>{m.name}</b><small>{m.title || m.email}</small></div></Link>
+                    : <div className="who-cell"><Avatar name={m.name} size={32} /><div><b>{m.name}</b><small>{m.title || m.email}</small></div></div>}</td>
                   <td>{m.role === 'lead' ? <span className="pill lime">Lead</span> : <span className="pill">Member</span>}</td>
                   <td className="num">{m.openTasks}</td>
                   <td className="num" style={m.overdueTasks ? { color: 'var(--red)', fontWeight: 500 } : undefined}>{m.overdueTasks}</td>

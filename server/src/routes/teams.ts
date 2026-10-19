@@ -4,7 +4,11 @@ import { canManageTeam, canSeeTeam, isAdmin, teamIds } from '../lib/access.js';
 import { badRequest, conflict, forbidden, notFound } from '../lib/errors.js';
 import { parse, requireAdmin, requireUser, uuid } from '../lib/http.js';
 
-const teamBody = z.object({ name: z.string().trim().min(1).max(60), description: z.string().trim().max(300).default('') });
+const teamBody = z.object({
+  name: z.string().trim().min(1).max(60),
+  description: z.string().trim().max(300).default(''),
+  department: z.string().trim().max(60).default(''),
+});
 
 export default async function teamRoutes(app: FastifyInstance) {
   const { sql } = app;
@@ -13,7 +17,7 @@ export default async function teamRoutes(app: FastifyInstance) {
     const u = requireUser(req);
     const ids = teamIds(u);
     return sql`
-      select t.id, t.name, t.description,
+      select t.id, t.name, t.description, t.department,
         (select count(*)::int from team_members m where m.team_id = t.id) as member_count,
         (select count(*)::int from projects p where p.team_id = t.id and p.archived_at is null) as project_count,
         (select role from team_members m where m.team_id = t.id and m.user_id = ${u.id}) as my_role,
@@ -28,7 +32,7 @@ export default async function teamRoutes(app: FastifyInstance) {
     const u = requireUser(req);
     const { id } = parse(z.object({ id: uuid }), req.params);
     if (!canSeeTeam(u, id)) throw notFound('Team not found.');
-    const [team] = await sql`select id, name, description from teams where id = ${id}`;
+    const [team] = await sql`select id, name, description, department from teams where id = ${id}`;
     if (!team) throw notFound('Team not found.');
     const members = await sql`
       select u.id, u.name, u.title, u.email, m.role,
@@ -47,7 +51,7 @@ export default async function teamRoutes(app: FastifyInstance) {
     const body = parse(teamBody, req.body);
     const [dup] = await sql`select 1 from teams where lower(name) = lower(${body.name})`;
     if (dup) throw conflict('A team with that name already exists.');
-    const [t] = await sql`insert into teams (name, description) values (${body.name}, ${body.description}) returning id`;
+    const [t] = await sql`insert into teams (name, description, department) values (${body.name}, ${body.description}, ${body.department}) returning id`;
     return reply.status(201).send(t);
   });
 
@@ -56,7 +60,10 @@ export default async function teamRoutes(app: FastifyInstance) {
     const { id } = parse(z.object({ id: uuid }), req.params);
     if (!canManageTeam(u, id)) throw forbidden();
     const body = parse(teamBody.partial(), req.body);
-    await sql`update teams set name = coalesce(${body.name ?? null}, name), description = coalesce(${body.description ?? null}, description) where id = ${id}`;
+    // Departments group teams for org reporting, so only admins set them.
+    if (body.department !== undefined && !isAdmin(u)) throw forbidden('Only admins can change a team’s department.');
+    await sql`update teams set name = coalesce(${body.name ?? null}, name), description = coalesce(${body.description ?? null}, description),
+      department = coalesce(${body.department ?? null}, department) where id = ${id}`;
     return { ok: true };
   });
 

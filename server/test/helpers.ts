@@ -6,10 +6,30 @@ import { buildApp } from '../src/app.js';
 import { loadConfig } from '../src/config.js';
 import { createDb } from '../src/db.js';
 import { memoryMailer } from '../src/lib/mailer.js';
+import type { AiClient, ChatMessage, ChatOptions } from '../src/lib/ai.js';
 
 export const TEST_DB = process.env.TEST_DATABASE_URL ?? 'postgres://seg:seg@localhost:5432/seg_test';
 
-export async function setup() {
+/** Fake AI client: records every prompt and answers with `reply`. Flip `enabled` or set `fail` to test errors. */
+export function fakeAi(reply: (messages: ChatMessage[], opts: ChatOptions) => string = () => 'ok') {
+  const f = {
+    enabled: true,
+    model: 'test/fake-model',
+    calls: [] as { messages: ChatMessage[]; opts: ChatOptions }[],
+    reply,
+    fail: null as Error | null,
+    async chat(messages: ChatMessage[], opts: ChatOptions = {}) {
+      f.calls.push({ messages, opts });
+      if (f.fail) throw f.fail;
+      return { text: f.reply(messages, opts), promptTokens: 120, completionTokens: 30 };
+    },
+    /** Everything sent to the model in the last call, as one string. */
+    lastPrompt: () => f.calls.at(-1)!.messages.map((m) => m.content).join('\n'),
+  };
+  return f satisfies AiClient;
+}
+
+export async function setup(opts: { ai?: AiClient; env?: Record<string, string> } = {}) {
   const admin = createDb(TEST_DB, 1);
   await admin.unsafe('drop schema public cascade; create schema public;');
   await admin.end();
@@ -22,8 +42,9 @@ export async function setup() {
     WEB_DIST: '/nonexistent',
     RATE_LIMIT_AUTH: '1000',
     MAX_UPLOAD_MB: '1',
+    ...opts.env,
   } as any);
-  const app = await buildApp(cfg, { mailer });
+  const app = await buildApp(cfg, { mailer, ai: opts.ai });
   return { app, mailer, cfg };
 }
 

@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, CalendarDays, Pencil, Plus } from 'lucide-react';
+import { CalendarDays, ChartNoAxesCombined, ListChecks, Pencil, Plus } from 'lucide-react';
 import { ApiError, api } from '../lib/api';
 import { useMe } from '../lib/auth';
 import { PROJECT_STATUS, STATUS, STATUS_ORDER, dueLabel } from '../lib/format';
@@ -9,6 +9,8 @@ import type { ProjectDetail, Status, TaskItem } from '../lib/types';
 import { Avatar, Confirm, Empty, ErrorState, Modal, PageLoading, useToast } from '../components/ui';
 import { TaskRow } from '../components/TaskRow';
 import { useShell } from '../components/Shell';
+import { Crumbs } from '../components/kpi';
+import { ProjectInsights } from '../components/ProjectInsights';
 
 const GROUP_ORDER: Status[] = ['changes', 'in_progress', 'review', 'todo', 'done'];
 
@@ -23,6 +25,9 @@ export default function ProjectPage() {
   const [closed, setClosed] = useState<Record<string, boolean>>({ done: true });
   const [editing, setEditing] = useState(false);
   const [quick, setQuick] = useState('');
+  const [params, setParams] = useSearchParams();
+  const tab = params.get('tab') === 'insights' ? 'insights' : 'tasks';
+  const setTab = (t: 'tasks' | 'insights') => setParams((x) => { const n = new URLSearchParams(x); if (t === 'tasks') n.delete('tab'); else n.set('tab', t); return n; }, { replace: true });
   const project = useQuery({ queryKey: ['project', id], queryFn: () => api.get<ProjectDetail>(`/projects/${id}`) });
   const tasks = useQuery({ queryKey: ['tasks', 'project', id], queryFn: () => api.get<TaskItem[]>(`/tasks?projectId=${id}`) });
 
@@ -46,7 +51,7 @@ export default function ProjectPage() {
 
   return (
     <div className="page">
-      <Link to={`/teams/${p.teamId}`} className="back muted" style={{ fontSize: 13.5, marginBottom: 14 }}><ArrowLeft size={15} />{p.teamName}</Link>
+      <Crumbs items={[{ label: p.teamName, to: `/teams/${p.teamId}` }, { label: p.name }]} />
       <div className="page-head">
         <div>
           <div className="row" style={{ gap: 12 }}><h1>{p.name}</h1><span className={`pill ${stColor}`}><span className="d" />{stLabel}</span></div>
@@ -56,7 +61,13 @@ export default function ProjectPage() {
         <button className="btn primary" onClick={() => shell.newTask(id)}><Plus size={16} />Add task</button>
       </div>
 
-      <div className="stats" style={{ ['--n' as any]: 4, marginTop: 6 }}>
+      <div className="subtabs" role="tablist" aria-label="Project view" style={{ marginTop: 4 }}>
+        <button role="tab" aria-selected={tab === 'tasks'} className={tab === 'tasks' ? 'active' : ''} onClick={() => setTab('tasks')}><ListChecks size={14} style={{ marginRight: 6, verticalAlign: -2 }} />Tasks</button>
+        <button role="tab" aria-selected={tab === 'insights'} className={tab === 'insights' ? 'active' : ''} onClick={() => setTab('insights')}><ChartNoAxesCombined size={14} style={{ marginRight: 6, verticalAlign: -2 }} />Insights</button>
+      </div>
+
+      {tab === 'insights' ? <div style={{ marginTop: 18 }}><ProjectInsights projectId={id} /></div> : <>
+      <div className="stats" style={{ ['--n' as any]: 4, marginTop: 18 }}>
         <div className="stat"><span className="v">{pct}%</span><span className="k"><span className="progress lime" style={{ display: 'block', marginTop: 4 }}><i style={{ width: `${pct}%` }} /></span></span></div>
         <div className="stat"><span className="v">{p.taskCount - p.doneCount}</span><span className="k">Open tasks</span></div>
         <div className="stat"><span className="v">{p.reviewCount}</span><span className="k">Ready for review</span></div>
@@ -101,6 +112,7 @@ export default function ProjectPage() {
         </div>
         {tasks.data && list.length === 0 && <div style={{ marginTop: 12 }}><Empty title={filter === 'mine' ? 'Nothing here is assigned to you' : 'No tasks yet'}>Add the first one above.</Empty></div>}
       </section>
+      </>}
       {editing && <EditProject p={p} onClose={() => setEditing(false)} />}
     </div>
   );

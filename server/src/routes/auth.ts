@@ -10,7 +10,7 @@ const password = z.string().min(10, 'Use at least 10 characters').max(200);
 const name = z.string().trim().min(1, 'Enter your name').max(80);
 
 export default async function authRoutes(app: FastifyInstance) {
-  const { sql, cfg, mail } = app;
+  const { sql, cfg, mail, ai } = app;
   // Limit per IP *and* email: stops password guessing on one account without
   // locking out a whole office that shares one public IP.
   const authLimit = {
@@ -82,7 +82,7 @@ export default async function authRoutes(app: FastifyInstance) {
     const u = requireUser(req);
     const [{ unread }] = await sql`select count(*)::int as unread from notifications where user_id = ${u.id} and read_at is null`;
     const [{ pending }] = u.role === 'admin' ? await sql`select count(*)::int as pending from users where status = 'pending'` : [{ pending: 0 }];
-    return { user: u, unread, pendingUsers: pending, mailEnabled: mail.enabled };
+    return { user: u, unread, pendingUsers: pending, mailEnabled: mail.enabled, aiEnabled: ai.enabled };
   });
 
   app.patch('/auth/profile', async (req) => {

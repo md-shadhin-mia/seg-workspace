@@ -3,12 +3,12 @@ export type Priority = 'urgent' | 'high' | 'medium' | 'low';
 
 export interface TeamRef { teamId: string; name: string; role: 'lead' | 'member' }
 export interface Me { id: string; email: string; name: string; title: string; role: 'admin' | 'member'; status: string; teams: TeamRef[] }
-export interface MeResponse { user: Me; unread: number; pendingUsers: number; mailEnabled: boolean }
+export interface MeResponse { user: Me; unread: number; pendingUsers: number; mailEnabled: boolean; aiEnabled: boolean }
 
 export interface Person { id: string; name: string; title: string; email: string; role: string; status: string; teams: TeamRef[]; createdAt: string; lastLoginAt: string | null }
 
 export interface Team {
-  id: string; name: string; description: string; memberCount: number; projectCount: number; myRole: 'lead' | 'member' | null;
+  id: string; name: string; description: string; department: string; memberCount: number; projectCount: number; myRole: 'lead' | 'member' | null;
   projects: { id: string; name: string; status: string }[];
 }
 export interface TeamDetail { id: string; name: string; description: string; canManage: boolean;
@@ -55,4 +55,16 @@ export interface Dashboard {
   reviewQueue: { submissionId: string; version: number; createdAt: string; userId: string; userName: string; taskId: string; title: string; projectName: string }[];
   teams: { id: string; name: string; open: number; overdue: number; review: number; done: number; total: number }[];
   isLead: boolean;
+}
+
+export interface AiPlanTask { title: string; description: string; priority: Priority; assigneeId: string | null; dueDate: string | null }
+export interface AiPlan {
+  description: string; objectives: string[]; milestones: { title: string; dueDate: string | null }[]; tasks: AiPlanTask[]; risks: string[];
+  members: { id: string; name: string; title: string }[];
+}
+export interface AiAnswer { text: string; refs: Record<string, string> }
+export interface AiUsage {
+  enabled: boolean; model: string; limitPerHour: number; requests: number; failed: number; promptTokens: number; completionTokens: number;
+  top: { userId: string | null; name: string | null; requests: number; tokens: number }[];
+  byFeature: { feature: string; requests: number }[];
 }
