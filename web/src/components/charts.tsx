@@ -33,18 +33,22 @@ export function CountUp({ value, decimals = 0, suffix = '' }: { value: number; d
   return <span className="num">{v.toFixed(decimals)}{suffix}</span>;
 }
 
-export function useWidth<T extends HTMLElement>() {
+export function useSize<T extends HTMLElement>() {
   const ref = useRef<T>(null);
-  const [w, setW] = useState(0);
+  const [size, setSize] = useState({ w: 0, h: 0 });
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
-    setW(el.clientWidth);
+    setSize({ w: el.clientWidth, h: el.clientHeight });
     if (typeof ResizeObserver === 'undefined') return;
-    const ro = new ResizeObserver(([e]) => setW(Math.round(e.contentRect.width)));
+    const ro = new ResizeObserver(([e]) => setSize({ w: Math.round(e.contentRect.width), h: Math.round(e.contentRect.height) }));
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
+  return [ref, size] as const;
+}
+export function useWidth<T extends HTMLElement>() {
+  const [ref, { w }] = useSize<T>();
   return [ref, w] as const;
 }
 
@@ -204,11 +208,13 @@ function useActiveIndex(n: number) {
 
 const PAD = { l: 34, r: 10, t: 12, b: 26 };
 
-export function LineChart({ labels, series, height = 250, format = (v) => String(v), title, onPick, ariaLabel }: {
-  labels: string[]; series: Series[]; height?: number; format?: (v: number) => string; title?: (i: number) => ReactNode;
+export function LineChart({ labels, series, height: minHeight = 250, fill, format = (v) => String(v), title, onPick, ariaLabel }: {
+  labels: string[]; series: Series[]; height?: number; fill?: boolean; format?: (v: number) => string; title?: (i: number) => ReactNode;
   onPick?: (i: number) => void; ariaLabel: string;
 }) {
-  const [ref, w] = useWidth<HTMLDivElement>();
+  // With `fill`, the chart grows to the height its container gives it (e.g. to match a taller card beside it).
+  const [ref, { w, h }] = useSize<HTMLDivElement>();
+  const height = fill ? Math.max(minHeight, h) : minHeight;
   const id = svgId(useId());
   const n = labels.length;
   const { active, setActive, onKeyDown } = useActiveIndex(n);
@@ -223,7 +229,7 @@ export function LineChart({ labels, series, height = 250, format = (v) => String
     return { s, d: smoothPath(pts), pts };
   });
   return (
-    <div className="chart" ref={ref} style={{ height }}>
+    <div className={`chart ${fill ? 'fill' : ''}`} ref={ref} style={fill ? { minHeight } : { height }}>
       {w > 0 && (
         <svg width={w} height={height} role="img" aria-label={ariaLabel} tabIndex={0} onKeyDown={onKeyDown} onBlur={() => setActive(null)}
           onMouseMove={(e) => {
@@ -274,11 +280,12 @@ export function LineChart({ labels, series, height = 250, format = (v) => String
   );
 }
 
-export function BarChart({ labels, series, stacked, height = 250, format = (v) => String(v), title, onPick, ariaLabel }: {
-  labels: string[]; series: Series[]; stacked?: boolean; height?: number; format?: (v: number) => string; title?: (i: number) => ReactNode;
+export function BarChart({ labels, series, stacked, height: minHeight = 250, fill, format = (v) => String(v), title, onPick, ariaLabel }: {
+  labels: string[]; series: Series[]; stacked?: boolean; height?: number; fill?: boolean; format?: (v: number) => string; title?: (i: number) => ReactNode;
   onPick?: (i: number) => void; ariaLabel: string;
 }) {
-  const [ref, w] = useWidth<HTMLDivElement>();
+  const [ref, { w, h }] = useSize<HTMLDivElement>();
+  const height = fill ? Math.max(minHeight, h) : minHeight;
   const n = labels.length;
   const { active, setActive, onKeyDown } = useActiveIndex(n);
   const totals = labels.map((_, i) => (stacked ? series.reduce((s, x) => s + (x.values[i] ?? 0), 0) : Math.max(0, ...series.map((x) => x.values[i] ?? 0))));
@@ -291,7 +298,7 @@ export function BarChart({ labels, series, stacked, height = 250, format = (v) =
   const y = (v: number) => PAD.t + ih - (v / max) * ih;
   const every = Math.max(1, Math.ceil(n / Math.max(2, Math.floor(iw / 56))));
   return (
-    <div className="chart" ref={ref} style={{ height }}>
+    <div className={`chart ${fill ? 'fill' : ''}`} ref={ref} style={fill ? { minHeight } : { height }}>
       {w > 0 && (
         <svg width={w} height={height} role="img" aria-label={ariaLabel} tabIndex={0} onKeyDown={onKeyDown} onBlur={() => setActive(null)} onMouseLeave={() => setActive(null)}>
           {mid.map((t) => (

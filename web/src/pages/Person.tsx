@@ -62,7 +62,7 @@ export default function PersonPage() {
         </Widget>
         <Widget className="span-12" title="Recently completed" sub="In this period, newest first" icon={<History size={16} />} tone="green">
           {d.recent.length ? (
-            <div className="table-wrap" style={{ boxShadow: 'none' }}>
+            <div className="table-wrap stack" style={{ boxShadow: 'none' }}>
               <table>
                 <thead><tr><th>Task</th><th>Project</th><th>Finished</th><th>Due</th><th>Delivery</th></tr></thead>
                 <tbody>
@@ -71,10 +71,10 @@ export default function PersonPage() {
                     return (
                       <tr key={t.id}>
                         <td><Link to={`/tasks/${t.id}`} className="text-link" style={{ fontWeight: 500 }}>{t.title}</Link> <span className="muted">#{t.seq}</span></td>
-                        <td>{t.projectName}</td>
-                        <td>{dueLabel(t.doneOn)}</td>
-                        <td>{t.dueDate ? dueLabel(t.dueDate) : <span className="na">No date</span>}</td>
-                        <td>{!t.dueDate ? <span className="pill">No due date</span> : late ? <span className="pill red">Late</span> : <span className="pill green">On time</span>}</td>
+                        <td data-label="Project">{t.projectName}</td>
+                        <td data-label="Finished">{dueLabel(t.doneOn)}</td>
+                        <td data-label="Due">{t.dueDate ? dueLabel(t.dueDate) : <span className="na">No date</span>}</td>
+                        <td data-label="Delivery">{!t.dueDate ? <span className="pill">No due date</span> : late ? <span className="pill red">Late</span> : <span className="pill green">On time</span>}</td>
                       </tr>
                     );
                   })}

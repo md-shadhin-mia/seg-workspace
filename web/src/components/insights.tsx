@@ -20,7 +20,7 @@ export function TrendWidget({ trend, range, title = 'Productivity trend', sub, s
   const tip = (i: number) => bucketTitle(trend[i], range.bucket);
   const per = range.bucket === 'day' ? 'day' : range.bucket;
   return (
-    <Widget className={span} title={title} sub={sub ?? `Tasks per ${per}`} icon={<ChartNoAxesCombined size={16} />} tone="blue"
+    <Widget className={`${span} grow-body`} title={title} sub={sub ?? `Tasks per ${per}`} icon={<ChartNoAxesCombined size={16} />} tone="blue"
       actions={
         <div className="subtabs" role="group" aria-label="Chart">
           <button className={mode === 'flow' ? 'active' : ''} aria-pressed={mode === 'flow'} onClick={() => setMode('flow')}>Throughput</button>
@@ -31,7 +31,7 @@ export function TrendWidget({ trend, range, title = 'Productivity trend', sub, s
       {mode === 'flow' ? (
         <>
           <Legend items={[{ label: 'Completed', color: 'var(--green-solid)' }, { label: 'Newly assigned', color: 'var(--blue-solid)', dashed: true }]} />
-          <LineChart labels={labels} title={tip} ariaLabel={`Completed and assigned tasks per ${per}. Use the arrow keys to read each ${per}.`}
+          <LineChart fill labels={labels} title={tip} ariaLabel={`Completed and assigned tasks per ${per}. Use the arrow keys to read each ${per}.`}
             series={[
               { key: 'completed', label: 'Completed', color: 'var(--green-solid)', values: trend.map((b) => b.completed), area: true },
               { key: 'assigned', label: 'Newly assigned', color: 'var(--blue-solid)', values: trend.map((b) => b.assigned), dashed: true },
@@ -40,7 +40,7 @@ export function TrendWidget({ trend, range, title = 'Productivity trend', sub, s
       ) : (
         <>
           <Legend items={[{ label: 'Finished on time', color: 'var(--green-solid)' }, { label: 'Finished late', color: 'var(--red-solid)' }]} />
-          <BarChart labels={labels} title={tip} stacked ariaLabel={`Tasks finished on time and late per ${per}`}
+          <BarChart fill labels={labels} title={tip} stacked ariaLabel={`Tasks finished on time and late per ${per}`}
             series={[
               { key: 'onTime', label: 'On time', color: 'var(--green-solid)', values: trend.map((b) => b.onTime) },
               { key: 'late', label: 'Late', color: 'var(--red-solid)', values: trend.map((b) => b.late) },
@@ -54,7 +54,7 @@ export function TrendWidget({ trend, range, title = 'Productivity trend', sub, s
 function TrendTable({ trend, range }: { trend: Bucket[]; range: Range }) {
   return (
     <div className="table-wrap" style={{ maxHeight: 320, overflowY: 'auto', boxShadow: 'none' }}>
-      <table style={{ minWidth: 420 }}>
+      <table style={{ minWidth: 0 }}>
         <thead><tr><th>Period</th><th>Assigned</th><th>Completed</th><th>On time</th><th>Late</th></tr></thead>
         <tbody>
           {[...trend].reverse().map((b) => (
@@ -66,21 +66,29 @@ function TrendTable({ trend, range }: { trend: Bucket[]; range: Range }) {
   );
 }
 
+const SCORE_WORD = (s: number) => (s >= 80 ? 'Strong' : s >= 60 ? 'Steady' : 'Needs attention');
+
 export function ScoreWidget({ m, prev, settings, title = 'KPI score', sub, span = 'span-4', to }: {
   m: Metrics; prev: Metrics; settings: KpiSettings; title?: string; sub?: string; span?: string; to?: string;
 }) {
-  const color = m.score === null ? 'var(--grey-solid)' : m.score >= 80 ? 'var(--green-solid)' : m.score >= 60 ? 'var(--amber-solid)' : 'var(--red-solid)';
+  const t = m.score === null ? 'grey' : m.score >= 80 ? 'green' : m.score >= 60 ? 'amber' : 'red';
+  const color = { grey: 'var(--grey-solid)', green: 'var(--green-solid)', amber: 'var(--amber-solid)', red: 'var(--red-solid)' }[t];
   return (
-    <Widget className={span} title={title} sub={sub ?? 'Weighted from the parts below'} icon={<Gauge size={16} />} tone="green"
+    <Widget className={span} title={title} sub={sub ?? 'How the score is made up'} icon={<Gauge size={16} />} tone="green"
       actions={to && <Link to={to} className="link-btn">Details <ArrowRight size={14} /></Link>}>
       <div className="score-card">
-        <Ring value={m.score} size={132} stroke={13} color={color} label={m.score === null ? 'No score yet' : `Score ${m.score} of 100`}>
-          {m.score === null ? <><b style={{ fontSize: 18 }}>–</b><small>Not enough data</small></> : <><b className="num">{m.score}</b><small>of 100</small></>}
-        </Ring>
-        <div style={{ flex: 1, minWidth: 180, display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-start' }}>
-          {m.score !== null && <Delta now={m.score} prev={prev.score} unit=" pts" />}
-          <ScoreBreakdown m={m} settings={settings} />
+        <div className="score-sum">
+          <Ring value={m.score} size={104} stroke={11} color={color} label={m.score === null ? 'No score yet' : `Score ${m.score} of 100`}>
+            {m.score === null ? <b style={{ fontSize: 18 }}>–</b> : <><b className="num">{m.score}</b><small>of 100</small></>}
+          </Ring>
+          <div className="score-txt">
+            <span className={`score-word ${t}`}>{m.score === null ? 'Not enough data yet' : SCORE_WORD(m.score)}</span>
+            {m.score !== null && prev.score !== null
+              ? <span className="row" style={{ gap: 6, flexWrap: 'wrap' }}><Delta now={m.score} prev={prev.score} unit=" pts" /><small className="muted">vs previous period</small></span>
+              : <small className="muted">{m.score === null ? `Needs ${settings.minSample}+ tasks in the period` : 'No score for the previous period'}</small>}
+          </div>
         </div>
+        <ScoreBreakdown m={m} settings={settings} />
       </div>
     </Widget>
   );
@@ -147,26 +155,35 @@ export function PeopleTable({ people, settings, query = '' }: { people: PersonRo
   );
   const pc = (v: number | null, target: number) => <span className={v === null ? 'na' : ''} style={v !== null && v < target * 0.75 ? { color: 'var(--red)' } : undefined}>{pctText(v)}</span>;
   return (
-    <div className="table-wrap" style={{ boxShadow: 'none' }}>
+    <>
+    <label className="sort-mobile">
+      <span>Sort by</span>
+      <select className="input sm" value={sort.join(':')} onChange={(e) => { const [k, d] = e.target.value.split(':'); setSort([k as SortKey, Number(d) as 1 | -1]); }}>
+        {([['score', 'Score'], ['completed', 'Done'], ['completionRate', 'Completion'], ['onTimeRate', 'On time'], ['overdue', 'Overdue'], ['open', 'Open']] as const).map(([k, l]) => <option key={k} value={`${k}:-1`}>{l}, highest first</option>)}
+        <option value="name:1">Name, A to Z</option>
+      </select>
+    </label>
+    <div className="table-wrap stack" style={{ boxShadow: 'none' }}>
       <table>
         <thead><tr>{th('name', 'Person')}{th('active', 'Tasks')}{th('completed', 'Done')}{th('completionRate', 'Completion')}{th('onTimeRate', 'On time')}{th('approvalRate', 'Approved')}{th('open', 'Open')}{th('overdue', 'Overdue')}{th('score', 'Score')}</tr></thead>
         <tbody>
           {rows.map((p) => (
             <tr key={p.id} className="click" onClick={() => nav(`/people/${p.id}${query}`)}>
               <td><Link to={`/people/${p.id}${query}`} className="who-cell" onClick={(e) => e.stopPropagation()}><Avatar name={p.name} size={28} /><div><b>{p.name}</b><small>{p.teamNames.join(', ') || p.title}</small></div></Link></td>
-              <td className="num">{p.metrics.active}</td>
-              <td className="num">{p.metrics.completed}</td>
-              <td className="num">{pc(p.metrics.completionRate, settings.targets.completion)}</td>
-              <td className="num">{pc(p.metrics.onTimeRate, settings.targets.onTime)}</td>
-              <td className="num">{pc(p.metrics.approvalRate, settings.targets.approval)}</td>
-              <td className="num">{p.metrics.open}</td>
-              <td className="num" style={p.metrics.overdue ? { color: 'var(--red)', fontWeight: 600 } : undefined}>{p.metrics.overdue}</td>
-              <td><span className="row" style={{ gap: 6 }}><ScoreChip score={p.metrics.score} size="sm" /><Delta now={p.metrics.score} prev={p.previousScore} /></span></td>
+              <td className="num" data-label="Tasks">{p.metrics.active}</td>
+              <td className="num" data-label="Done">{p.metrics.completed}</td>
+              <td className="num" data-label="Completion">{pc(p.metrics.completionRate, settings.targets.completion)}</td>
+              <td className="num" data-label="On time">{pc(p.metrics.onTimeRate, settings.targets.onTime)}</td>
+              <td className="num" data-label="Approved">{pc(p.metrics.approvalRate, settings.targets.approval)}</td>
+              <td className="num" data-label="Open">{p.metrics.open}</td>
+              <td className="num" data-label="Overdue" style={p.metrics.overdue ? { color: 'var(--red)', fontWeight: 600 } : undefined}>{p.metrics.overdue}</td>
+              <td className="act"><span className="row" style={{ gap: 6 }}><ScoreChip score={p.metrics.score} size="sm" /><Delta now={p.metrics.score} prev={p.previousScore} /></span></td>
             </tr>
           ))}
         </tbody>
       </table>
     </div>
+    </>
   );
 }
 

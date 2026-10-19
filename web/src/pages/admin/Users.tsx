@@ -67,21 +67,21 @@ export default function Users() {
       {list.length === 0 ? (
         <Empty title={tab === 'pending' ? 'No one is waiting' : 'No one here'}>{tab === 'pending' ? 'New sign-ups appear here for you to approve.' : ''}</Empty>
       ) : (
-        <div className="table-wrap">
+        <div className="table-wrap stack">
           <table>
             <thead><tr><th>Person</th>{tab === 'pending' ? <th>Requested</th> : <><th>Role</th><th>Teams</th><th>Last sign-in</th></>}<th style={{ width: tab === 'pending' ? 210 : 60 }} /></tr></thead>
             <tbody>
               {list.map((u) => (
                 <tr key={u.id}>
                   <td><div className="who-cell"><Avatar name={u.name} size={34} /><div><b>{u.name}{u.id === me.id && <span className="muted" style={{ fontWeight: 400 }}> (you)</span>}</b><small>{u.email}{u.title ? ` · ${u.title}` : ''}</small></div></div></td>
-                  {tab === 'pending' ? <td className="muted">{ago(u.createdAt)}</td> : (
+                  {tab === 'pending' ? <td className="muted" data-label="Requested">{ago(u.createdAt)}</td> : (
                     <>
-                      <td>{u.role === 'admin' ? <span className="pill lime">Admin</span> : <span className="pill">Member</span>}{u.status === 'rejected' && <span className="pill red" style={{ marginLeft: 6 }}>Not approved</span>}</td>
-                      <td><div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>{u.teams.length ? u.teams.map((t) => <span key={t.teamId} className="pill">{t.name}{t.role === 'lead' ? ' · Lead' : ''}</span>) : <span className="muted">No team</span>}</div></td>
-                      <td className="muted">{u.lastLoginAt ? ago(u.lastLoginAt) : 'Never'}</td>
+                      <td data-label="Role">{u.role === 'admin' ? <span className="pill lime">Admin</span> : <span className="pill">Member</span>}{u.status === 'rejected' && <span className="pill red" style={{ marginLeft: 6 }}>Not approved</span>}</td>
+                      <td data-label="Teams" className="wide last"><div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>{u.teams.length ? u.teams.map((t) => <span key={t.teamId} className="pill">{t.name}{t.role === 'lead' ? ' · Lead' : ''}</span>) : <span className="muted">No team</span>}</div></td>
+                      <td className="muted" data-label="Last sign-in">{u.lastLoginAt ? ago(u.lastLoginAt) : 'Never'}</td>
                     </>
                   )}
-                  <td>
+                  <td className={tab === 'pending' ? 'act-row' : 'act'}>
                     {tab === 'pending' ? (
                       <div className="row end">
                         <button className="btn sm" onClick={() => setConfirm({ user: u, action: 'rejected' })}>Decline</button>

@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowDownRight, ArrowUpRight, CalendarRange, ChevronLeft, ChevronRight, Info, Maximize2, Minimize2, Minus } from 'lucide-react';
-import { PRESETS, pctText, rangeLabel, type ActivityFeed, type DeadlineTask, type KpiSettings, type Metrics, type Preset } from '../lib/analytics';
+import { PRESETS, pctText, rangeLabel, tone, type ActivityFeed, type DeadlineTask, type KpiSettings, type Metrics, type Preset } from '../lib/analytics';
 import { STATUS, ago, dayDiff, dueClass, dueLabel, todayISO } from '../lib/format';
 import type { Status } from '../lib/types';
 import { CountUp, Sparkline } from './charts';
@@ -126,19 +126,33 @@ export function ScoreChip({ score, size = 'md' }: { score: number | null; size?:
 /** Shows exactly how a score is made, so nobody is judged by an unexplained number. */
 export function ScoreBreakdown({ m, settings }: { m: Metrics; settings: KpiSettings }) {
   const total = m.scoreParts.reduce((s, p) => s + p.weight, 0);
+  // "Nothing overdue" has no admin target; anything under 90% open-and-on-schedule is worth a look.
+  const target = (k: Metrics['scoreParts'][number]['key']) => (k === 'backlog' ? null : settings.targets[k]);
+  if (!m.scoreParts.length) return <p className="bd-note"><Info size={13} aria-hidden="true" />No finished, reviewed or open work in this period yet.</p>;
   return (
     <div className="breakdown">
-      {m.scoreParts.map((p) => (
-        <div key={p.key} className="bd-row">
-          <span className="bd-l">{p.label}</span>
-          <div className="bd-bar"><i style={{ width: `${p.value}%` }} /></div>
-          <span className="bd-v num">{Math.round(p.value)}%</span>
-          <span className="bd-w num" title="Share of the score">×{total ? Math.round((p.weight / total) * 100) : 0}%</span>
-        </div>
-      ))}
+      <ul className="bd-list">
+        {m.scoreParts.map((p) => {
+          const t = target(p.key);
+          const share = total ? p.weight / total : 0;
+          return (
+            <li key={p.key} className={`bd-row tone-${tone(p.value, t ?? 90)}`}>
+              <div className="bd-top"><span className="bd-l">{p.label}</span><b className="bd-v num">{Math.round(p.value)}%</b></div>
+              <div className="bd-bar" role="img" aria-label={`${p.label} ${Math.round(p.value)}%${t ? `, target ${t}%` : ''}`}>
+                <i style={{ width: `${p.value}%` }} />
+                {t && <span className="bd-tick" style={{ left: `${t}%` }} title={`Target ${t}%`} />}
+              </div>
+              <div className="bd-meta">
+                <span>Weight {Math.round(share * 100)}%{m.score !== null && <> · adds <b className="num">{Math.round(p.value * share)}</b> pts</>}</span>
+                {t && <span>Target {t}%</span>}
+              </div>
+            </li>
+          );
+        })}
+      </ul>
       <p className="bd-note"><Info size={13} aria-hidden="true" />
         {m.enoughData
-          ? 'Weighted average of the parts above. Parts with no data in this period are left out.'
+          ? 'The score adds up the points from each part (rounded). Parts with no data in this period are left out.'
           : `A score appears once there are at least ${settings.minSample} tasks in the period.`}
       </p>
     </div>

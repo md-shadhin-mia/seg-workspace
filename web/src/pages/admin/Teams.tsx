@@ -20,17 +20,17 @@ export default function Teams() {
         <div><h1>Teams & access</h1><p>Teams are separate workspaces. People only see projects, tasks and files of teams they belong to, plus tasks they're assigned to.</p></div>
         <button className="btn primary" onClick={() => setEdit('new')}><Plus size={16} />New team</button>
       </div>
-      <div className="table-wrap">
+      <div className="table-wrap stack">
         <table>
           <thead><tr><th>Team</th><th>Department</th><th>People</th><th>Projects</th><th style={{ width: 230 }} /></tr></thead>
           <tbody>
             {teams.data!.map((t) => (
               <tr key={t.id}>
                 <td><b style={{ fontWeight: 500 }}>{t.name}</b><div className="muted" style={{ fontSize: 12.5 }}>{t.description || 'No description'}</div></td>
-                <td>{t.department ? <span className="pill pink">{t.department}</span> : <span className="muted">–</span>}</td>
-                <td className="num">{t.memberCount}</td>
-                <td className="num">{t.projectCount}</td>
-                <td><div className="row end">
+                <td data-label="Department">{t.department ? <span className="pill pink">{t.department}</span> : <span className="muted">–</span>}</td>
+                <td className="num" data-label="People">{t.memberCount}</td>
+                <td className="num" data-label="Projects">{t.projectCount}</td>
+                <td className="act-row"><div className="row end">
                   <Link to={`/teams/${t.id}`} className="btn sm">Members</Link>
                   <button className="btn sm" onClick={() => setEdit(t)}>Edit</button>
                   <button className="btn ghost sm danger" onClick={() => setDel(t)} disabled={t.projectCount > 0} title={t.projectCount ? 'Archive or move its projects first' : undefined}>Delete</button>

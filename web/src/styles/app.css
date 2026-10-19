@@ -57,7 +57,7 @@ h3 { font-size: 14px; font-weight: 600; }
 .muted { color: var(--fg-3); }
 .muted-2 { color: var(--fg-2); }
 .num { font-variant-numeric: tabular-nums; }
-.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.sr-only { position: absolute; top: 0; left: 0; width: 1px; height: 1px; margin: -1px; padding: 0; border: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .label { font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--fg-3); }
 
 /* ---------- shell ---------- */
@@ -402,7 +402,7 @@ a.item:hover { border-color: var(--line-2); background: var(--surface-2); }
 .meter i.on { background: var(--fg); }
 
 /* ---------- tables ---------- */
-.table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface); box-shadow: var(--shadow-sm); }
+.table-wrap { position: relative; overflow-x: auto; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface); box-shadow: var(--shadow-sm); }
 table { width: 100%; border-collapse: collapse; font-size: 13.5px; min-width: 680px; }
 th { text-align: left; font-weight: 500; color: var(--fg-3); font-size: 12.5px; padding: 11px 16px; border-bottom: 1px solid var(--line); background: var(--surface-2); white-space: nowrap; }
 td { padding: 12px 16px; border-top: 1px solid var(--line); vertical-align: middle; }

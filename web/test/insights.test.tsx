@@ -60,10 +60,13 @@ describe('KPI pieces', () => {
     expect(screen.getByText('–')).toHaveAttribute('title', expect.stringMatching(/Not enough work/));
   });
   it('explains how the score is built', () => {
-    const m = { scoreParts: [{ key: 'completion', label: 'Completion', value: 60, weight: 30 }, { key: 'onTime', label: 'On time', value: 90, weight: 10 }], enoughData: true } as Metrics;
-    render(<ScoreBreakdown m={m} settings={{ weights: { completion: 30, onTime: 10, approval: 0, backlog: 0 }, targets: { completion: 80, onTime: 80, approval: 80, weeklyCompleted: 5 }, minSample: 3 }} />);
-    expect(screen.getByText('×75%')).toBeInTheDocument();
-    expect(screen.getByText('×25%')).toBeInTheDocument();
+    const m = { scoreParts: [{ key: 'completion', label: 'Completion', value: 60, weight: 30 }, { key: 'onTime', label: 'On time', value: 90, weight: 10 }], enoughData: true, score: 68 } as Metrics;
+    render(<ScoreBreakdown m={m} settings={{ weights: { completion: 30, onTime: 10, approval: 0, backlog: 0 }, targets: { completion: 80, onTime: 70, approval: 80, weeklyCompleted: 5 }, minSample: 3 }} />);
+    // 60×0.75 + 90×0.25 = 45 + 22.5: the points shown add up to the score.
+    expect(screen.getByText('45')).toBeInTheDocument();
+    expect(screen.getByText(/Weight 75%/)).toBeInTheDocument();
+    expect(screen.getByText(/Weight 25%/)).toBeInTheDocument();
+    expect(screen.getByText('Target 80%')).toBeInTheDocument();
   });
 });
 

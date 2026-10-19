@@ -113,7 +113,7 @@ export default function Analytics() {
 
         <Widget className="span-12" title="Projects" sub="Progress, delays and what moved in this period" icon={<FolderKanban size={16} />} tone="green">
           {o.projects.length ? (
-            <div className="table-wrap" style={{ boxShadow: 'none' }}>
+            <div className="table-wrap stack" style={{ boxShadow: 'none' }}>
               <table>
                 <thead><tr><th>Project</th><th>Progress</th><th>Done</th><th>In review</th><th>Overdue</th><th>Done this period</th><th>Due</th></tr></thead>
                 <tbody>
@@ -122,18 +122,18 @@ export default function Analytics() {
                     return (
                       <tr key={x.id}>
                         <td><Link to={`/projects/${x.id}?tab=insights`} className="who-cell"><div><b>{x.name}</b><small>{x.teamName}</small></div></Link></td>
-                        <td><div className="bar-cell"><StackBar max={Math.max(1, x.total)} height={8} parts={[
+                        <td className="wide" data-label="Progress"><div className="bar-cell"><StackBar max={Math.max(1, x.total)} height={8} parts={[
                           { key: 'd', label: 'Done', value: x.done, color: 'var(--green-solid)' },
                           { key: 'r', label: 'In review', value: x.review, color: 'var(--violet-solid)' },
                           { key: 'p', label: 'In progress', value: x.inProgress, color: 'var(--blue-solid)' },
                           { key: 'c', label: 'Changes requested', value: x.changes, color: 'var(--red-solid)' },
                           { key: 't', label: 'To do', value: x.todo, color: 'var(--grey-solid)' },
                         ]} /><b className="num" style={{ minWidth: 38, textAlign: 'right' }}>{pct}%</b></div></td>
-                        <td className="num">{x.done}/{x.total}</td>
-                        <td className="num">{x.review}</td>
-                        <td className="num" style={x.overdue ? { color: 'var(--red)', fontWeight: 600 } : undefined}>{x.overdue}</td>
-                        <td className="num">{x.doneInPeriod}</td>
-                        <td>{x.dueDate ? dueLabel(x.dueDate) : <span className="na">–</span>}</td>
+                        <td className="num" data-label="Done">{x.done}/{x.total}</td>
+                        <td className="num" data-label="In review">{x.review}</td>
+                        <td className="num" data-label="Overdue" style={x.overdue ? { color: 'var(--red)', fontWeight: 600 } : undefined}>{x.overdue}</td>
+                        <td className="num" data-label="Done this period">{x.doneInPeriod}</td>
+                        <td data-label="Due">{x.dueDate ? dueLabel(x.dueDate) : <span className="na">–</span>}</td>
                       </tr>
                     );
                   })}

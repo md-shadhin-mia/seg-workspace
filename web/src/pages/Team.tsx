@@ -65,7 +65,7 @@ export default function TeamPage() {
       <section className="section">
         <div className="section-h"><h2>People</h2><span className="badge plain">{t.members.length}</span><span className="sp" />
           {t.canManage && <button className="btn sm" onClick={add.open}><UserPlus size={15} />Add people</button>}</div>
-        <div className="table-wrap">
+        <div className="table-wrap stack">
           <table>
             <thead><tr><th>Person</th><th>Role</th><th>Open tasks</th><th>Overdue</th>{t.canManage && <th style={{ width: 60 }} />}</tr></thead>
             <tbody>
@@ -74,10 +74,10 @@ export default function TeamPage() {
                   <td>{t.canManage || m.id === me.id
                     ? <Link to={`/people/${m.id}`} className="who-cell" title="Open performance"><Avatar name={m.name} size={32} /><div><b>{m.name}</b><small>{m.title || m.email}</small></div></Link>
                     : <div className="who-cell"><Avatar name={m.name} size={32} /><div><b>{m.name}</b><small>{m.title || m.email}</small></div></div>}</td>
-                  <td>{m.role === 'lead' ? <span className="pill lime">Lead</span> : <span className="pill">Member</span>}</td>
-                  <td className="num">{m.openTasks}</td>
-                  <td className="num" style={m.overdueTasks ? { color: 'var(--red)', fontWeight: 500 } : undefined}>{m.overdueTasks}</td>
-                  {t.canManage && <td><button className="btn ghost sm" data-user={m.id} onClick={memberMenu.open} aria-label={`Options for ${m.name}`} disabled={m.id === me.id && me.role !== 'admin'}>•••</button></td>}
+                  <td data-label="Role">{m.role === 'lead' ? <span className="pill lime">Lead</span> : <span className="pill">Member</span>}</td>
+                  <td className="num" data-label="Open tasks">{m.openTasks}</td>
+                  <td className="num" data-label="Overdue" style={m.overdueTasks ? { color: 'var(--red)', fontWeight: 500 } : undefined}>{m.overdueTasks}</td>
+                  {t.canManage && <td className="act"><button className="btn ghost sm" data-user={m.id} onClick={memberMenu.open} aria-label={`Options for ${m.name}`} disabled={m.id === me.id && me.role !== 'admin'}>•••</button></td>}
                 </tr>
               ))}
             </tbody>
