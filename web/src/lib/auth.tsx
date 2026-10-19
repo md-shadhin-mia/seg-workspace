@@ -29,8 +29,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     refresh: () => q.refetch(),
     signOut: async () => {
       await api.post('/auth/logout').catch(() => {});
-      qc.clear();
+      // Set 'me' in place so the provider sees it. qc.clear() would drop the query it is watching,
+      // leaving the old user on screen (and /login bouncing back to /) until a reload.
       qc.setQueryData(['me'], null);
+      qc.removeQueries({ predicate: (query) => query.queryKey[0] !== 'me' });
     },
   };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
